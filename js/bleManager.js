@@ -1,28 +1,17 @@
 /**
- * BLE temperature client — Web Bluetooth, NOTIFY-only, single device, stable reconnect.
- * Does NOT call requestDevice() except when no device is chosen yet.
+ * BLE manager — Web Bluetooth, NOTIFY-only, stable reconnect.
+ * Unchanged behavior vs. legacy module; only the filename changed for architecture.
  */
 
 export const DEFAULT_SERVICE_UUID = '12345678-1234-1234-1234-1234567890ab';
-/** Tried first; if missing, first NOTIFY/INDICATE char in the service is used. */
 export const DEFAULT_CHARACTERISTIC_UUID = 'abcd1234-5678-1234-5678-abcdef123456';
 
 /** @typedef {'idle'|'connecting'|'connected'|'disconnected'|'reconnecting'} BleStatus */
 
-/**
- * @param {string} s
- * @returns {string}
- */
 function normalizeUuid(s) {
   return String(s).trim().toLowerCase();
 }
 
-/**
- * Prefer exact UUID; if missing or not NOTIFY-capable, pick first NOTIFY/INDICATE in service.
- * @param {BluetoothRemoteGATTService} service
- * @param {string} preferredUuid empty → skip exact match, scan only
- * @param {(payload: unknown) => void} [onDebug]
- */
 async function resolveNotifyCharacteristic(service, preferredUuid, onDebug) {
   if (preferredUuid) {
     try {
@@ -77,17 +66,6 @@ async function resolveNotifyCharacteristic(service, preferredUuid, onDebug) {
 }
 
 export class TemperatureBleClient {
-  /**
-   * @param {object} [options]
-   * @param {(celsius: number) => void} [options.onTemperature]
-   * @param {(sample: { celsius: number | null; rawHex: string }) => void} [options.onSample]
-   * @param {(status: BleStatus, detail?: string) => void} [options.onStatus]
-   * @param {(err: Error) => void} [options.onError]
-   * @param {(label: string, payload: unknown) => void} [options.onDebug]
-   * @param {(uuid: string) => void} [options.onCharacteristicResolved]
-   * @param {string} [options.serviceUuid]
-   * @param {string | null} [options.characteristicUuid] null/omit = default; "" = auto only
-   */
   constructor(options = {}) {
     this._onTemperature = options.onTemperature;
     this._onSample = options.onSample;
@@ -96,9 +74,7 @@ export class TemperatureBleClient {
     this._onDebug = options.onDebug;
     this._onCharacteristicResolved = options.onCharacteristicResolved;
 
-    /** @type {string} */
     this._serviceUuid = normalizeUuid(options.serviceUuid || DEFAULT_SERVICE_UUID);
-    /** Preferred char UUID; empty = scan service for first NOTIFY/INDICATE (recommended if firmware UUID differs). */
     if (options.characteristicUuid !== undefined) {
       const v = options.characteristicUuid;
       this._preferredCharUuid = v == null || String(v).trim() === '' ? '' : normalizeUuid(v);
@@ -106,9 +82,7 @@ export class TemperatureBleClient {
       this._preferredCharUuid = '';
     }
 
-    /** @type {BluetoothDevice | null} */
     this._device = null;
-    /** @type {BluetoothRemoteGATTCharacteristic | null} */
     this._characteristic = null;
 
     this._operationLock = Promise.resolve();
@@ -122,10 +96,6 @@ export class TemperatureBleClient {
     this._onGattDisconnected = this._onGattDisconnected.bind(this);
   }
 
-  /**
-   * @param {{ serviceUuid?: string; characteristicUuid?: string | null }} cfg
-   * characteristicUuid `null` or "" → auto-pick first NOTIFY/INDICATE in service (no exact try).
-   */
   configure(cfg) {
     if (cfg.serviceUuid) this._serviceUuid = normalizeUuid(cfg.serviceUuid);
     if (cfg.characteristicUuid !== undefined) {
@@ -134,20 +104,14 @@ export class TemperatureBleClient {
     }
   }
 
-  /** @returns {boolean} */
   get hasDevice() {
     return this._device !== null;
   }
 
-  /** @returns {boolean} */
   get isGattConnected() {
     return !!(this._device && this._device.gatt && this._device.gatt.connected);
   }
 
-  /**
-   * First-time: opens picker via requestDevice(). Later: only gatt.connect().
-   * Serialized so two clicks cannot start parallel connections.
-   */
   async connect() {
     return this._withLock(async () => {
       this._intentionalDisconnect = false;
@@ -179,9 +143,6 @@ export class TemperatureBleClient {
     });
   }
 
-  /**
-   * Disconnect and stop auto-reconnect. Device reference is cleared so next connect uses picker again.
-   */
   async disconnect() {
     return this._withLock(async () => {
       this._intentionalDisconnect = true;
@@ -210,9 +171,6 @@ export class TemperatureBleClient {
     }
   }
 
-  /**
-   * Serialize connect/disconnect/reconnect to prevent overlapping GATT operations.
-   */
   _withLock(fn) {
     const next = this._operationLock.then(fn, fn);
     this._operationLock = next.catch(() => {});
@@ -321,16 +279,11 @@ export class TemperatureBleClient {
     });
   }
 
-  /** @param {BleStatus} status */
   _emitStatus(status, detail) {
     this._onStatus?.(status, detail);
   }
 }
 
-/**
- * @param {ArrayBuffer} buffer
- * @returns {number | null}
- */
 export function parseTemperatureValue(buffer) {
   const u8 = new Uint8Array(buffer);
 

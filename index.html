@@ -53,6 +53,11 @@
         gap: 0.75rem;
         align-items: center;
       }
+      .row.toolbar {
+        margin-top: 1rem;
+        align-items: flex-end;
+        justify-content: space-between;
+      }
       button {
         font: inherit;
         padding: 0.5rem 1rem;
@@ -69,6 +74,14 @@
       button.secondary {
         background: #334155;
         color: var(--text);
+      }
+      button.unit-toggle {
+        min-width: 3.25rem;
+        font-weight: 600;
+        padding: 0.45rem 0.65rem;
+      }
+      button.unit-toggle[aria-pressed='true'] {
+        background: #2563eb;
       }
       .status {
         display: flex;
@@ -126,13 +139,21 @@
         margin-bottom: 1rem;
         font-size: 0.875rem;
       }
+      #info-banner {
+        background: rgba(251, 191, 36, 0.12);
+        color: #fcd34d;
+        padding: 0.65rem 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        font-size: 0.8125rem;
+      }
       #raw-log {
         width: 100%;
-        min-height: 120px;
-        max-height: 200px;
+        min-height: 100px;
+        max-height: 160px;
         overflow: auto;
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: 0.7rem;
+        font-size: 0.65rem;
         background: #0a0d11;
         color: #94a3b8;
         border: 1px solid #1e293b;
@@ -146,19 +167,41 @@
         color: var(--muted);
         margin-bottom: 0.35rem;
       }
-      details.uuid-panel {
-        margin-top: 1rem;
+      details.more {
+        margin-top: 0.75rem;
         font-size: 0.8125rem;
       }
-      details.uuid-panel summary {
+      details.more summary {
         cursor: pointer;
         color: var(--muted);
         user-select: none;
       }
-      .uuid-grid {
+      .uuid-grid,
+      .interval-field {
         display: grid;
         gap: 0.5rem;
         margin-top: 0.75rem;
+      }
+      .interval-field label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        color: var(--muted);
+        font-size: 0.7rem;
+      }
+      .interval-field input {
+        font: inherit;
+        padding: 0.45rem 0.5rem;
+        border-radius: 8px;
+        border: 1px solid #334155;
+        background: #0f1419;
+        color: var(--text);
+        max-width: 8rem;
+      }
+      .interval-hint {
+        font-size: 0.65rem;
+        color: var(--muted);
+        margin-top: 0.25rem;
       }
       .uuid-grid label {
         display: flex;
@@ -193,14 +236,107 @@
         color: var(--muted);
         min-height: 1.25rem;
       }
+      .switch {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        font-size: 0.8125rem;
+      }
+      .switch input {
+        width: 2.25rem;
+        height: 1.25rem;
+        accent-color: var(--accent);
+        cursor: pointer;
+      }
+      #session-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        max-height: 180px;
+        overflow-y: auto;
+      }
+      #session-list .session-empty {
+        font-size: 0.8125rem;
+        color: var(--muted);
+        padding: 0.35rem 0;
+      }
+      button.session-item {
+        width: 100%;
+        text-align: left;
+        background: #1e293b;
+        font-size: 0.75rem;
+        padding: 0.45rem 0.6rem;
+        font-weight: 400;
+      }
+      button.session-item.is-active {
+        outline: 2px solid var(--accent);
+        background: #1e3a5f;
+      }
+      .session-form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-bottom: 0.65rem;
+      }
+      .session-form input {
+        font: inherit;
+        padding: 0.45rem 0.5rem;
+        border-radius: 8px;
+        border: 1px solid #334155;
+        background: #0f1419;
+        color: var(--text);
+      }
+      .data-table-wrap {
+        overflow-x: auto;
+        max-height: 220px;
+        overflow-y: auto;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        margin-top: 0.5rem;
+      }
+      table.data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.72rem;
+      }
+      table.data-table th,
+      table.data-table td {
+        padding: 0.35rem 0.45rem;
+        text-align: left;
+        border-bottom: 1px solid #1e293b;
+      }
+      table.data-table th {
+        background: #0f1419;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+      table.data-table .muted {
+        color: var(--muted);
+      }
+      #session-viewer-title {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        margin: 0.75rem 0 0.25rem;
+      }
+      #active-session-label {
+        font-size: 0.72rem;
+        color: var(--ok);
+        margin-top: 0.35rem;
+      }
     </style>
   </head>
   <body>
     <main>
       <h1>BLE temperature</h1>
-      <p class="sub">NOTIFY-only · single device · reconnect without picker</p>
+      <p class="sub">NOTIFY-only · stable link · sample when you choose</p>
 
       <div id="error-banner" hidden></div>
+      <div id="info-banner" hidden></div>
 
       <div class="panel">
         <div class="row">
@@ -212,19 +348,32 @@
           <span id="status-text">Idle</span>
         </div>
         <p class="active-char" id="active-char" hidden></p>
-        <details class="uuid-panel">
-          <summary>Service &amp; characteristic UUIDs</summary>
-          <div class="uuid-grid">
-            <label>
-              Service UUID
-              <input type="text" id="uuid-service" spellcheck="false" autocomplete="off" />
+
+        <div class="row toolbar">
+          <div class="interval-field" style="margin-top: 0">
+            <label for="interval-seconds">
+              Sample every (seconds)
+              <input
+                type="number"
+                id="interval-seconds"
+                min="0.5"
+                max="86400"
+                step="any"
+                value="5"
+                inputmode="decimal"
+                aria-describedby="interval-desc"
+              />
             </label>
-            <label>
-              Characteristic UUID (optional — leave blank to auto-pick NOTIFY)
-              <input type="text" id="uuid-char" spellcheck="false" autocomplete="off" placeholder="blank = auto" />
-            </label>
+            <span id="interval-desc" class="interval-hint">Any value 0.5–86400 s (decimals OK). Does not reconnect BLE.</span>
           </div>
-        </details>
+          <div class="row" style="gap: 0.5rem; align-items: center">
+            <label class="switch">
+              <input type="checkbox" id="stream-toggle" checked aria-label="Stream on" />
+              <span>On</span>
+            </label>
+            <button type="button" class="unit-toggle" id="unit-toggle" aria-pressed="false">°C</button>
+          </div>
+        </div>
       </div>
 
       <div class="panel">
@@ -236,14 +385,57 @@
           </div>
           <div class="temp-sub" id="temp-sub"></div>
         </div>
-        <label class="hint" style="margin-top: 1rem">Last 30 readings</label>
+        <label class="hint" style="margin-top: 1rem">Last 30 samples (°C)</label>
         <canvas id="temp-chart" width="480" height="120" aria-label="Temperature chart"></canvas>
       </div>
 
-      <div class="panel">
-        <label class="hint">Raw / debug log</label>
+      <details class="more">
+        <summary>Recording &amp; saved sessions</summary>
+        <div class="uuid-grid" style="margin-top: 0.75rem">
+          <label class="hint" style="margin-bottom: 0">Create a session to save interval samples (IndexedDB, this browser).</label>
+          <div class="session-form">
+            <input
+              type="text"
+              id="session-name-input"
+              placeholder="Session name"
+              maxlength="120"
+              autocomplete="off"
+            />
+            <button type="button" id="btn-new-session">New session</button>
+          </div>
+          <p id="active-session-label" class="hint" style="color: var(--ok)"></p>
+          <ul id="session-list"></ul>
+          <p id="session-viewer-title">Readings</p>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>°C</th>
+                  <th>°F</th>
+                </tr>
+              </thead>
+              <tbody id="session-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <details class="more">
+        <summary>Advanced · BLE UUIDs &amp; debug log</summary>
+        <div class="uuid-grid">
+          <label>
+            Service UUID
+            <input type="text" id="uuid-service" spellcheck="false" autocomplete="off" />
+          </label>
+          <label>
+            Characteristic UUID (blank = auto NOTIFY)
+            <input type="text" id="uuid-char" spellcheck="false" autocomplete="off" placeholder="blank = auto" />
+          </label>
+        </div>
+        <label class="hint" style="margin-top: 1rem">Debug log</label>
         <pre id="raw-log"></pre>
-      </div>
+      </details>
     </main>
     <script type="module" src="./js/app.js"></script>
   </body>
