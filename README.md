@@ -17,18 +17,16 @@ Web app that connects to an Arduino-based microcontroller via **Bluetooth Low En
 ### 1. Clone the repo
 
 ```bash
-git clone <REPO_URL>
+git clone https://github.com/agulati2026/forehead-patch-sensor.git
 ```
 
-Replace `<REPO_URL>` with your team’s GitHub HTTPS or SSH URL (for example `https://github.com/your-org/forehead_patch_sensorv3.git`).
+SSH (if you use keys): `git clone git@github.com:agulati2026/forehead-patch-sensor.git`
 
 ### 2. Navigate into the project
 
 ```bash
-cd forehead_patch_sensorv3
+cd forehead-patch-sensor
 ```
-
-Use the **same folder name** as your repository on GitHub if it differs.
 
 ### 3. Install dependencies
 
